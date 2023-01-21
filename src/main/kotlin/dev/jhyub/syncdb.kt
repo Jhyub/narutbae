@@ -2,7 +2,11 @@ package dev.jhyub
 
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
-import kotlinx.coroutines.*
+import io.ktor.client.plugins.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -31,7 +35,7 @@ suspend fun syncdb() {
             Files.createDirectory(Path(target))
             for (it in Files.list(Path(base))) {
                 if (it.isSymbolicLink()) {
-                    if(!it.readSymbolicLink().exists())
+                    if (!it.readSymbolicLink().exists())
                         continue
                     Path("$target/${it.fileName}").createSymbolicLinkPointingTo(it.readSymbolicLink())
                 }
@@ -41,7 +45,7 @@ suspend fun syncdb() {
 
     withContext(Dispatchers.IO) {
         Path("$target/self").createSymbolicLinkPointingTo(Path(target))
-        if(Path(EnvManager.exposeAt).isSymbolicLink()) {
+        if (Path(EnvManager.exposeAt).isSymbolicLink()) {
             val previous = Path(EnvManager.exposeAt).readSymbolicLink()
             Files.move(
                 Path("$target/self"), Path(EnvManager.exposeAt),

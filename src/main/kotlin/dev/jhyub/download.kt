@@ -2,9 +2,12 @@ package dev.jhyub
 
 import io.ktor.client.*
 import io.ktor.client.call.*
+import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.*
 import io.ktor.client.request.*
 import io.ktor.http.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
@@ -14,7 +17,7 @@ import kotlin.math.min
 // Licensed under APACHE License
 // https://github.com/ktorio/ktor-documentation/blob/2.2.2/codeSnippets/snippets/client-download-file-range/src/main/kotlin/com/example/Downloader.kt
 
-suspend fun HttpClient.download(url: String, at: File, chunkSize: Int = 1024*1024) {
+suspend fun HttpClient.download(url: String, at: File, chunkSize: Int = 1024 * 1024) {
     val length = head(url).headers[HttpHeaders.ContentLength]?.toLong() as Long
     val lastByte = length - 1
 
@@ -25,10 +28,11 @@ suspend fun HttpClient.download(url: String, at: File, chunkSize: Int = 1024*102
 
     while (true) {
         val end = min(start + chunkSize - 1, lastByte)
-        val data = get(url) {
-            header("Range", "bytes-$start-$end")
-        }.body<ByteArray>()
+        println("bytes=$start-$end")
         withContext(Dispatchers.IO) {
+            val data = get(url) {
+                header("Range", "bytes=$start-$end")
+            }.body<ByteArray>()
             output.write(data)
         }
         if(end >= lastByte) break

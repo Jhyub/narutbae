@@ -2,6 +2,7 @@ package dev.jhyub
 
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
@@ -41,21 +42,23 @@ fun Application.module() {
     routing {
         get("/${EnvManager.repoName}/{fileName}") {
             val fileName = call.parameters["fileName"]
-            val localFilePath = "${EnvManager.storeAt}/$fileName"
+            val localFilePath = "${EnvManager.exposeAt}/$fileName"
             fileName?.let {
                 if (Path(localFilePath).exists()) {
                     call.respondRedirect("/${EnvManager.repoName}/downloads/$fileName")
                 } else {
-                    launch {
-                        val client = HttpClient(CIO)
-                        client.download("${EnvManager.target}/$it", File("${EnvManager.storeAt}/$it"))
-                        try {
-                            Path("${EnvManager.storeAt}/.narutbae/symlinkbase/$it")
-                                .createSymbolicLinkPointingTo(Path("${EnvManager.storeAt}/$it"))
-                        } catch (_: FileAlreadyExistsException) {
+                    if(!Path("${EnvManager.storeAt}/$fileName").exists()) {
+                        launch {
+                            val client = HttpClient(CIO)
+                            try {
+                                client.download("${EnvManager.target}$it", File("${EnvManager.storeAt}/$it"))
+                                Path("${EnvManager.storeAt}/.narutbae/symlinkbase/$it")
+                                    .createSymbolicLinkPointingTo(Path("${EnvManager.storeAt}/$it"))
+                            } catch (_: FileAlreadyExistsException) {
+                            }
                         }
                     }
-                    call.respondRedirect("${EnvManager.target}/$it")
+                    call.respondRedirect("${EnvManager.target}$it")
                 }
                 GarbageCollector.update(it)
             }
