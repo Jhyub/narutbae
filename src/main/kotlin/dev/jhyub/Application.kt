@@ -21,7 +21,7 @@ import kotlin.io.path.exists
 fun main(): Unit = runBlocking {
     EnvManager
     launch(Dispatchers.Unconfined) {
-        while(true) {
+        while (true) {
             launch { syncdb() }
             delay(Duration.ofMinutes(EnvManager.syncInterval))
         }
@@ -29,7 +29,7 @@ fun main(): Unit = runBlocking {
     launch(Dispatchers.Unconfined) {
         kotlinx.coroutines.delay(10L)
         GarbageCollector.read()
-        while(true) {
+        while (true) {
             launch { GarbageCollector.job() }
             delay(Duration.ofMinutes(EnvManager.gcInterval))
         }
@@ -47,14 +47,19 @@ fun Application.module() {
                 if (Path(localFilePath).exists()) {
                     call.respondRedirect("/${EnvManager.repoName}/downloads/$fileName")
                 } else {
-                    if(!Path("${EnvManager.storeAt}/$fileName").exists()) {
+                    if (!Path("${EnvManager.storeAt}/$fileName").exists()) {
                         launch {
                             val client = HttpClient(CIO)
                             try {
                                 client.download("${EnvManager.target}$it", File("${EnvManager.storeAt}/$it"))
-                                Path("${EnvManager.storeAt}/.narutbae/symlinkbase/$it")
-                                    .createSymbolicLinkPointingTo(Path("${EnvManager.storeAt}/$it"))
-                            } catch (_: FileAlreadyExistsException) {
+                                client.download("${EnvManager.target}$it.sig", File("${EnvManager.storeAt}/$it.sig"))
+                                if (Path("${EnvManager.storeAt}/$it").exists())
+                                    Path("${EnvManager.storeAt}/.narutbae/symlinkbase/$it")
+                                        .createSymbolicLinkPointingTo(Path("${EnvManager.storeAt}/$it"))
+                                if (Path("${EnvManager.storeAt}/$it.sig").exists())
+                                    Path("${EnvManager.storeAt}/.narutbae/symlinkbase/$it.sig")
+                                        .createSymbolicLinkPointingTo(Path("${EnvManager.storeAt}/$it.sig"))
+                            } catch (_: Exception) {
                             }
                         }
                     }

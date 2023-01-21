@@ -18,7 +18,9 @@ import kotlin.math.min
 // https://github.com/ktorio/ktor-documentation/blob/2.2.2/codeSnippets/snippets/client-download-file-range/src/main/kotlin/com/example/Downloader.kt
 
 suspend fun HttpClient.download(url: String, at: File, chunkSize: Int = 1024 * 1024) {
-    val length = head(url).headers[HttpHeaders.ContentLength]?.toLong() as Long
+    val head = head(url)
+    if(!head.status.isSuccess()) return
+    val length = head.headers[HttpHeaders.ContentLength]?.toLong() as Long
     val lastByte = length - 1
 
     var start = at.length()
