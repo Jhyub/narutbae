@@ -1,10 +1,7 @@
 package dev.jhyub
 
 import io.ktor.client.*
-import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
-import io.ktor.client.request.*
-import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
@@ -14,38 +11,53 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.time.delay
-import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.FileOutputStream
 import java.time.Duration
 import kotlin.io.path.Path
 import kotlin.io.path.createSymbolicLinkPointingTo
-import kotlin.math.min
+import kotlin.io.path.exists
 
 fun main(): Unit = runBlocking {
     EnvManager
     launch(Dispatchers.Unconfined) {
         while(true) {
             launch { syncdb() }
-            delay(Duration.ofMinutes(10L))
+            delay(Duration.ofMinutes(EnvManager.syncInterval))
         }
     }
-    embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module)
+    launch(Dispatchers.Unconfined) {
+        kotlinx.coroutines.delay(10L)
+        GarbageCollector.read()
+        while(true) {
+            launch { GarbageCollector.job() }
+            delay(Duration.ofMinutes(EnvManager.gcInterval))
+        }
+    }
+    embeddedServer(Netty, port = 8081, host = "0.0.0.0", module = Application::module)
         .start(wait = true)
 }
 
 fun Application.module() {
     routing {
-        get("/{fileName}") {
+        get("/${EnvManager.repoName}/{fileName}") {
             val fileName = call.parameters["fileName"]
+            val localFilePath = "${EnvManager.storeAt}/$fileName"
             fileName?.let {
-                launch {
-                    val client = HttpClient(CIO)
-                    client.download("${EnvManager.target}/$it", File("${EnvManager.storeAt}/$it"))
-                    Path("${EnvManager.storeAt}/.narutbae/symlinkbase/$it")
-                        .createSymbolicLinkPointingTo(Path("${EnvManager.storeAt}/$it"))
+                if (Path(localFilePath).exists()) {
+                    call.respondRedirect("/${EnvManager.repoName}/downloads/$fileName")
+                } else {
+                    launch {
+                        val client = HttpClient(CIO)
+                        client.download("${EnvManager.target}/$it", File("${EnvManager.storeAt}/$it"))
+                        try {
+                            Path("${EnvManager.storeAt}/.narutbae/symlinkbase/$it")
+                                .createSymbolicLinkPointingTo(Path("${EnvManager.storeAt}/$it"))
+                        } catch (_: FileAlreadyExistsException) {
+                        }
+                    }
+                    call.respondRedirect("${EnvManager.target}/$it")
                 }
-                call.respondRedirect("${EnvManager.target}/$it")
+                GarbageCollector.update(it)
             }
         }
     }
