@@ -3,6 +3,7 @@ package dev.jhyub
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
+import io.ktor.client.network.sockets.*
 import io.ktor.client.plugins.*
 import io.ktor.client.request.*
 import io.ktor.http.*
@@ -31,11 +32,15 @@ suspend fun HttpClient.download(url: String, at: File, chunkSize: Int = 1024 * 1
     while (true) {
         val end = min(start + chunkSize - 1, lastByte)
         println("bytes=$start-$end")
-        withContext(Dispatchers.IO) {
-            val data = get(url) {
-                header("Range", "bytes=$start-$end")
-            }.body<ByteArray>()
-            output.write(data)
+        try {
+            withContext(Dispatchers.IO) {
+                val data = get(url) {
+                    header("Range", "bytes=$start-$end")
+                }.body<ByteArray>()
+                output.write(data)
+            }
+        } catch (cte: ConnectTimeoutException) {
+            start -= chunkSize
         }
         if(end >= lastByte) break
         start += chunkSize
