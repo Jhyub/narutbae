@@ -2,7 +2,6 @@ package dev.jhyub
 
 import io.ktor.client.*
 import io.ktor.client.call.*
-import io.ktor.client.engine.cio.*
 import io.ktor.client.network.sockets.*
 import io.ktor.client.plugins.*
 import io.ktor.client.request.*
@@ -10,7 +9,6 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
@@ -63,5 +61,9 @@ suspend fun HttpClient.download(url: String, at: File, chunkSize: Int = 1024 * 1
         }
         if(end >= lastByte) break
         start += chunkSize
+    }
+
+    withContext(Dispatchers.IO) {
+        output.close()
     }
 }
