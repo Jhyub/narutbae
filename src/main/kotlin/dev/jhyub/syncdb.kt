@@ -28,6 +28,7 @@ suspend fun syncdb() {
                     "${EnvManager.target}/${EnvManager.repoName}$i",
                     File("$target/${EnvManager.repoName}$i"),
                 )
+                client.close()
                 println("Downloading ${EnvManager.repoName}$i done")
             }
         }

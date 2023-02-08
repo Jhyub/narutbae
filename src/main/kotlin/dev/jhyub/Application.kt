@@ -61,6 +61,7 @@ fun Application.module() {
                                         .createSymbolicLinkPointingTo(Path("${EnvManager.storeAt}/$it.sig"))
                             } catch (_: Exception) {
                             }
+                            client.close()
                         }
                     }
                     call.respondRedirect("${EnvManager.target}$it")
