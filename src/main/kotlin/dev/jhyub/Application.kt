@@ -67,6 +67,7 @@ fun Application.module() {
                     call.respondRedirect("${EnvManager.target}$it")
                 }
                 GarbageCollector.update(it)
+                GarbageCollector.update("$it.sig")
             }
         }
     }
