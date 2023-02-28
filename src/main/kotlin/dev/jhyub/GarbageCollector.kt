@@ -33,6 +33,7 @@ object GarbageCollector {
             val br = BufferedReader(InputStreamReader(fis))
             map = Json.decodeFromString(br.readLine())
             br.close()
+            fis.close()
         }
     }
 
