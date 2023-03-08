@@ -36,34 +36,30 @@ suspend fun HttpClient.download(url: String, at: File, chunkSize: Int = 1024 * 1
     val lastByte = length - 1
 
     var start = at.length()
-    val output = withContext(Dispatchers.IO) {
-        FileOutputStream(at, false)
-    }
-
-    while (true) {
-        val end = min(start + chunkSize - 1, lastByte)
-        println("bytes=$start-$end")
-        try {
-            withContext(Dispatchers.IO) {
-                val data = get(url) {
-                    header("Range", "bytes=$start-$end")
-                }.body<ByteArray>()
-                output.write(data)
-            }
-        } catch (cte: ConnectTimeoutException) {
-            println("Caught cte @get@ddownload, will retry after 2 secs")
-            start -= chunkSize
-            delay(2000L)
-        } catch (hrte: HttpRequestTimeoutException) {
-            println("Caught hrte @get@ddownload, will retry after 2 secs")
-            start -= chunkSize
-            delay(2000L)
-        }
-        if(end >= lastByte) break
-        start += chunkSize
-    }
-
     withContext(Dispatchers.IO) {
+        val output = FileOutputStream(at, false)
+        while (true) {
+            val end = min(start + chunkSize - 1, lastByte)
+            println("bytes=$start-$end")
+            try {
+                withContext(Dispatchers.IO) {
+                    val data = get(url) {
+                        header("Range", "bytes=$start-$end")
+                    }.body<ByteArray>()
+                    output.write(data)
+                }
+            } catch (cte: ConnectTimeoutException) {
+                println("Caught cte @get@ddownload, will retry after 2 secs")
+                start -= chunkSize
+                delay(2000L)
+            } catch (hrte: HttpRequestTimeoutException) {
+                println("Caught hrte @get@ddownload, will retry after 2 secs")
+                start -= chunkSize
+                delay(2000L)
+            }
+            if(end >= lastByte) break
+            start += chunkSize
+        }
         output.close()
     }
 }
