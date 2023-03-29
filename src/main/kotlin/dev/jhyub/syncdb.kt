@@ -34,13 +34,15 @@ suspend fun syncdb() {
         }
         launch(Dispatchers.IO) {
             Files.createDirectory(Path(target))
-            for (it in Files.list(Path(base))) {
+            val baseLs = Files.list(Path(base))
+            for (it in baseLs) {
                 if (it.isSymbolicLink()) {
                     if (!it.readSymbolicLink().exists())
                         continue
                     Path("$target/${it.fileName}").createSymbolicLinkPointingTo(it.readSymbolicLink())
                 }
             }
+            baseLs.close()
         }
     }
 
@@ -52,9 +54,11 @@ suspend fun syncdb() {
                 Path("$target/self"), Path(EnvManager.exposeAt),
                 StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING
             )
-            for (i in Files.list(previous)) {
+            val previousLs = Files.list(previous)
+            for (i in previousLs) {
                 Files.delete(i)
             }
+            previousLs.close()
             Files.delete(previous)
         } else {
             Files.move(
