@@ -52,10 +52,19 @@ fun Application.module() {
                             val client = HttpClient(CIO)
                             try {
                                 client.download("${EnvManager.target}$it", File("${EnvManager.storeAt}/$it"))
-                                client.download("${EnvManager.target}$it.sig", File("${EnvManager.storeAt}/$it.sig"))
                                 if (Path("${EnvManager.storeAt}/$it").exists())
                                     Path("${EnvManager.storeAt}/.narutbae/symlinkbase/$it")
                                         .createSymbolicLinkPointingTo(Path("${EnvManager.storeAt}/$it"))
+                            } catch (_: Exception) {
+                            }
+                            client.close()
+                        }
+                    }
+                    if(!Path("${EnvManager.storeAt}/$fileName.sig").exists()) {
+                        launch {
+                            val client = HttpClient(CIO)
+                            try {
+                                client.download("${EnvManager.target}$it.sig", File("${EnvManager.storeAt}/$it.sig"))
                                 if (Path("${EnvManager.storeAt}/$it.sig").exists())
                                     Path("${EnvManager.storeAt}/.narutbae/symlinkbase/$it.sig")
                                         .createSymbolicLinkPointingTo(Path("${EnvManager.storeAt}/$it.sig"))
