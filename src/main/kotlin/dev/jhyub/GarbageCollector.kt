@@ -1,5 +1,6 @@
 package dev.jhyub
 
+import dev.jhyub.EnvManager.target
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -78,6 +79,7 @@ object GarbageCollector {
                     }
                 }
             }
+            syncdb()
         }
     }
 }
