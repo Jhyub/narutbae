@@ -29,7 +29,7 @@ suspend fun syncdb() {
                     File("$target/${EnvManager.repoName}$i"),
                 )
                 client.close()
-                println("Downloading ${EnvManager.repoName}$i done")
+                println("Downloading ${EnvManager.repoName}$i done for target $target")
             }
         }
         launch(Dispatchers.IO) {
@@ -67,5 +67,5 @@ suspend fun syncdb() {
             )
         }
     }
-    println("Database sync done at ${Instant.now()}")
+    println("Database sync done at ${Instant.now()} for target $target")
 }

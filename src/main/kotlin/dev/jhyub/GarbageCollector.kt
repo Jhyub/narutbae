@@ -79,7 +79,7 @@ object GarbageCollector {
                     }
                 }
             }
-            syncdb()
         }
+        syncdb()
     }
 }

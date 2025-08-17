@@ -27,7 +27,7 @@ fun main(): Unit = runBlocking {
         }
     }
     launch(Dispatchers.Unconfined) {
-        kotlinx.coroutines.delay(10L)
+        delay(Duration.ofSeconds(30L))
         GarbageCollector.read()
         while (true) {
             launch { GarbageCollector.job() }
