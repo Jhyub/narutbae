@@ -38,16 +38,22 @@ suspend fun syncdb() {
                 val before = Path("$target/${EnvManager.repoName}$i")
                 val after = Path("$target/${EnvManager.repoName}$i.tmp")
 
-                val beforeChecksum = DigestInputStream(Files.newInputStream(before), md).readBytes()
-                val afterChecksum = DigestInputStream(Files.newInputStream(after), md).readBytes()
+                if(Files.exists(before)) {
+                    val beforeChecksum = DigestInputStream(Files.newInputStream(before), md).readBytes()
+                    val afterChecksum = DigestInputStream(Files.newInputStream(after), md).readBytes()
 
-                if (!beforeChecksum.contentEquals(afterChecksum)) {
-                    println("Overwriting ${EnvManager.repoName}$i and removing temporary file")
-                    Files.move(after, before, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+                    if (!beforeChecksum.contentEquals(afterChecksum)) {
+                        println("Overwriting ${EnvManager.repoName}$i and removing temporary file")
+                        Files.move(after, before, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+                    } else {
+                        println("Removing ${EnvManager.repoName}$i.tmp; file is same")
+                    }
+                    Files.deleteIfExists(after)
                 } else {
-                    println("Removing ${EnvManager.repoName}$i.tmp; file is same")
+                    println("Moving ${EnvManager.repoName}$i.tmp to ${EnvManager.repoName}$i")
+                    Files.move(after, before, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
                 }
-                Files.deleteIfExists(after)
+
             }
         }
         launch(Dispatchers.IO) {
