@@ -8,8 +8,11 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.security.DigestInputStream
+import java.security.MessageDigest
 import java.time.Instant
 import kotlin.io.path.*
 
@@ -25,11 +28,26 @@ suspend fun syncdb() {
             launch(Dispatchers.IO) {
                 val client = HttpClient(CIO)
                 client.download(
-                    "${EnvManager.target}/${EnvManager.repoName}$i",
-                    File("$target/${EnvManager.repoName}$i"),
+                    "${EnvManager.target}/${EnvManager.repoName}$i.tmp",
+                    File("$target/${EnvManager.repoName}$i.tmp"),
                 )
                 client.close()
-                println("Downloading ${EnvManager.repoName}$i done for target $target")
+                println("Downloading ${EnvManager.repoName}$i.tmp done for target $target")
+
+                val md = MessageDigest.getInstance("MD5")
+                val before = Path("$target/${EnvManager.repoName}$i")
+                val after = Path("$target/${EnvManager.repoName}$i.tmp")
+
+                val beforeChecksum = DigestInputStream(Files.newInputStream(before), md).readBytes()
+                val afterChecksum = DigestInputStream(Files.newInputStream(after), md).readBytes()
+
+                if (!beforeChecksum.contentEquals(afterChecksum)) {
+                    println("Overwriting ${EnvManager.repoName}$i and removing temporary file")
+                    Files.move(after, before, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+                } else {
+                    println("Removing ${EnvManager.repoName}$i.tmp; file is same")
+                }
+                Files.deleteIfExists(after)
             }
         }
         launch(Dispatchers.IO) {
