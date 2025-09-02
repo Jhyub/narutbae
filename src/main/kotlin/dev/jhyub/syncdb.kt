@@ -28,7 +28,7 @@ suspend fun syncdb() {
             launch(Dispatchers.IO) {
                 val client = HttpClient(CIO)
                 client.download(
-                    "${EnvManager.target}/${EnvManager.repoName}$i.tmp",
+                    "${EnvManager.target}/${EnvManager.repoName}$i",
                     File("$target/${EnvManager.repoName}$i.tmp"),
                 )
                 client.close()
