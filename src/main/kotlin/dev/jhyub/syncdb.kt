@@ -51,7 +51,7 @@ suspend fun syncdb() {
                     Files.deleteIfExists(after)
                 } else {
                     println("Moving ${EnvManager.repoName}$i.tmp to ${EnvManager.repoName}$i")
-                    Files.move(after, before, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+                    Files.move(after, before, StandardCopyOption.ATOMIC_MOVE)
                 }
 
             }
