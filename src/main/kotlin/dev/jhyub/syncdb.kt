@@ -38,6 +38,9 @@ suspend fun syncdb() {
                 val before = Path("$target/${EnvManager.repoName}$i")
                 val after = Path("$target/${EnvManager.repoName}$i.tmp")
 
+                Files.copy(Path("${EnvManager.exposeAt}/${EnvManager.repoName}$i"), before, StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.COPY_ATTRIBUTES)
+
                 if(Files.exists(before)) {
                     val beforeChecksum = DigestInputStream(Files.newInputStream(before), md).readBytes()
                     val afterChecksum = DigestInputStream(Files.newInputStream(after), md).readBytes()
