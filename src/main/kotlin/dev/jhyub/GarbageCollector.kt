@@ -4,6 +4,8 @@ import dev.jhyub.EnvManager.target
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -25,6 +27,7 @@ import kotlin.io.path.readSymbolicLink
 object GarbageCollector {
     val path = EnvManager.storeAt + "/.narutbae/access"
     var map = mutableMapOf<String, Long>()
+    val mapMutex = Mutex(false)
 
     suspend fun read() {
         withContext(Dispatchers.IO) {
@@ -32,7 +35,9 @@ object GarbageCollector {
             if (!f.exists()) return@withContext
             val fis = FileInputStream(f)
             val br = BufferedReader(InputStreamReader(fis))
-            map = Json.decodeFromString(br.readLine())
+            mapMutex.withLock {
+                map = Json.decodeFromString(br.readLine())
+            }
             br.close()
             fis.close()
         }
@@ -42,20 +47,25 @@ object GarbageCollector {
         withContext(Dispatchers.IO) {
             val f = File(path)
             val fos = FileOutputStream(f)
-            fos.write(Json.encodeToString(map).toByteArray())
+            mapMutex.withLock {
+                fos.write(Json.encodeToString(map).toByteArray())
+            }
             fos.close()
         }
     }
 
     suspend fun update(name: String) {
-        map[name] = Instant.now().toEpochMilli()
+        mapMutex.withLock {
+            map[name] = Instant.now().toEpochMilli()
+        }
         write()
     }
 
     suspend fun job() {
         val now = Instant.now()
+        val mapClone = mapMutex.withLock { map.toMap() }
         coroutineScope {
-            for ((k, v) in map) {
+            for ((k, v) in mapClone) {
                 println("GarbageCollector looking at $k")
                 if (k in listOf(
                         "${EnvManager.repoName}.db", "${EnvManager.repoName}.db.sig",
