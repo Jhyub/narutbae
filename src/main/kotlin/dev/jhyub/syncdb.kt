@@ -2,64 +2,80 @@ package dev.jhyub
 
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.InputStream
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.StandardCopyOption
-import java.security.DigestInputStream
-import java.security.MessageDigest
 import java.time.Instant
 import kotlin.io.path.*
+
+private fun deleteSnapshot(dir: Path) {
+    Files.list(dir).use { entries -> entries.forEach { Files.delete(it) } }
+    Files.delete(dir)
+}
 
 suspend fun syncdb() {
     val base = "${EnvManager.storeAt}/.narutbae/symlinkbase"
     val target = "${EnvManager.storeAt}/.narutbae/${Instant.now().epochSecond}"
     println("Starting repo sync")
+
+    withContext(Dispatchers.IO) {
+        Files.createDirectories(Path(target))
+    }
+
     coroutineScope {
         val dbfiles = listOf(
             ".db", ".db.sig", ".files", ".files.sig"
         )
         for (i in dbfiles) {
             launch(Dispatchers.IO) {
-                val client = HttpClient(CIO)
-                client.download(
-                    "${EnvManager.target}/${EnvManager.repoName}$i",
-                    File("$target/${EnvManager.repoName}$i.tmp"),
-                )
-                client.close()
-                println("Downloading ${EnvManager.repoName}$i.tmp done for target $target")
+                val name = "${EnvManager.repoName}$i"
+                val before = Path("$target/$name")
+                val after = Path("$target/$name.tmp")
+                val live = Path("${EnvManager.exposeAt}/$name")
 
-                val md = MessageDigest.getInstance("MD5")
-                val before = Path("$target/${EnvManager.repoName}$i")
-                val after = Path("$target/${EnvManager.repoName}$i.tmp")
+                // Carry the currently live file into the new base, so an unchanged
+                // (or undownloadable) file still ends up in the snapshot
+                if (Files.exists(live))
+                    Files.copy(
+                        live, before,
+                        StandardCopyOption.COPY_ATTRIBUTES, StandardCopyOption.REPLACE_EXISTING
+                    )
 
-                Files.copy(Path("${EnvManager.exposeAt}/${EnvManager.repoName}$i"), before, StandardCopyOption.COPY_ATTRIBUTES)
-
-                if(Files.exists(before)) {
-                    val beforeChecksum = DigestInputStream(Files.newInputStream(before), md).readBytes()
-                    val afterChecksum = DigestInputStream(Files.newInputStream(after), md).readBytes()
-
-                    if (!beforeChecksum.contentEquals(afterChecksum)) {
-                        println("Overwriting ${EnvManager.repoName}$i and removing temporary file")
-                        Files.move(after, before, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-                    } else {
-                        println("Removing ${EnvManager.repoName}$i.tmp; file is same")
-                    }
-                    Files.deleteIfExists(after)
-                } else {
-                    println("Moving ${EnvManager.repoName}$i.tmp to ${EnvManager.repoName}$i")
-                    Files.move(after, before, StandardCopyOption.ATOMIC_MOVE)
+                HttpClient(CIO).use { client ->
+                    client.download("${EnvManager.target}$name", after.toFile())
                 }
 
+                // download() returns silently on a non-2xx response, leaving no file behind
+                if (!Files.exists(after) || Files.size(after) == 0L) {
+                    Files.deleteIfExists(after)
+                    if (Files.exists(before))
+                        println("Downloading $name failed, keeping the currently live copy")
+                    else
+                        println("Downloading $name failed and no live copy exists, skipping")
+                    return@launch
+                }
+                println("Downloading $name.tmp done for target $target")
+
+                if (!Files.exists(before)) {
+                    println("Moving $name.tmp to $name")
+                    Files.move(after, before, StandardCopyOption.ATOMIC_MOVE)
+                } else if (Files.mismatch(before, after) != -1L) {
+                    println("Overwriting $name and removing temporary file")
+                    Files.move(
+                        after, before,
+                        StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING
+                    )
+                } else {
+                    println("Removing $name.tmp; file is same")
+                    Files.deleteIfExists(after)
+                }
             }
         }
         launch(Dispatchers.IO) {
-            Files.createDirectory(Path(target))
             val baseLs = Files.list(Path(base))
             for (it in baseLs) {
                 if (it.isSymbolicLink()) {
@@ -72,6 +88,12 @@ suspend fun syncdb() {
         }
     }
 
+    if (!Files.exists(Path("$target/${EnvManager.repoName}.db"))) {
+        println("Sync aborted: ${EnvManager.repoName}.db is unavailable, keeping the current snapshot")
+        withContext(Dispatchers.IO) { deleteSnapshot(Path(target)) }
+        return
+    }
+
     withContext(Dispatchers.IO) {
         Path("$target/self").createSymbolicLinkPointingTo(Path(target))
         if (Path(EnvManager.exposeAt).isSymbolicLink()) {
@@ -80,16 +102,13 @@ suspend fun syncdb() {
                 Path("$target/self"), Path(EnvManager.exposeAt),
                 StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING
             )
-            val previousLs = Files.list(previous)
-            for (i in previousLs) {
-                Files.delete(i)
-            }
-            previousLs.close()
-            Files.delete(previous)
+            deleteSnapshot(previous)
         } else {
+            // exposeAt is still the plain directory of the initial state; ATOMIC_MOVE cannot
+            // replace a directory (rename(2) fails with EISDIR), so let the JDK remove it first
             Files.move(
                 Path("$target/self"), Path(EnvManager.exposeAt),
-                StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING
+                StandardCopyOption.REPLACE_EXISTING
             )
         }
     }
