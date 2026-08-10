@@ -34,7 +34,7 @@ fun main(): Unit = runBlocking {
             delay(Duration.ofMinutes(EnvManager.gcInterval))
         }
     }
-    embeddedServer(Netty, port = 8081, host = "0.0.0.0", module = Application::module)
+    embeddedServer(Netty, port = EnvManager.port, host = EnvManager.host, module = Application::module)
         .start(wait = true)
 }
 

@@ -78,6 +78,8 @@ narutbae will automatically remove files that haven't been accessed for a config
 
 The following environment variables have to be set:
 ```shell
+NARUTBAE_HOST=0.0.0.0
+NARUTBAE_PORT=8081
 NARUTBAE_GC_DAYS=7 # obviously, in days
 NARUTBAE_GC_INTERVAL=1440 # in minutes
 NARUTBAE_SYNC_INTERVAL=10 # in minutes
